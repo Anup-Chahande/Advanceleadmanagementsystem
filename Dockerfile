@@ -9,4 +9,4 @@ RUN ./mvnw clean package -DskipTests || mvn clean package -DskipTests
 
 EXPOSE 8080
 
-CMD ["java","-jar","target/LeadManagementProject-0.0.1-SNAPSHOT"]
+CMD ["java","-jar","target/LeadManagementProject-0.0.1-SNAPSHOT.jar"]
