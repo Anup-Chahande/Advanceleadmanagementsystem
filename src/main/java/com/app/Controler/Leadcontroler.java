@@ -42,8 +42,7 @@ public class Leadcontroler {
 
 	@Autowired
 	Employeerepo emprepo;
-	
-	
+
 	@Autowired
 	Notifcationsrepo notifyrepo;
 
@@ -52,11 +51,12 @@ public class Leadcontroler {
 	public String registerlead(@RequestBody Lead lead) {
 
 		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
 
-		Optional<USER> usser = userrepo.findByEmail(email);
 		lead.setLeadstatus(LeadStatus.NEW);
+		lead.setCompany(admin.getCompany());
 		lead.setStaus(Status.ACTIVE);
-		lead.setExecutedBy(usser.get().getUsername());
+		lead.setExecutedBy(admin.getUsername());
 		leadrepo.save(lead);
 		return "lead registered";
 	}
@@ -65,7 +65,10 @@ public class Leadcontroler {
 	@PreAuthorize("hasRole('ADMIN')")
 	public List<Lead> getalllead() {
 
-		return leadrepo.findAll();
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
+
+		return leadrepo.findByCompany(admin.getCompany());
 
 	}
 
@@ -73,8 +76,15 @@ public class Leadcontroler {
 	@PreAuthorize("hasRole('ADMIN')")
 
 	public Lead getleadbyid(@PathVariable long id) {
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
 
-		return leadrepo.getById(id);
+		Lead lead = leadrepo.getById(id);
+		if (!lead.getCompany().getId().equals(admin.getCompany().getId())) {
+			throw new RuntimeException("Access Denied");
+		}
+
+		return lead;
 
 	}
 
@@ -82,6 +92,14 @@ public class Leadcontroler {
 	@PreAuthorize("hasRole('ADMIN')")
 
 	public String deletebyid(@PathVariable long id) {
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
+		Lead lead = leadrepo.getById(id);
+
+		if (!lead.getCompany().getId().equals(admin.getCompany().getId())) {
+			throw new RuntimeException("You cannot delete another company's lead");
+		}
+
 		leadrepo.deleteById(id);
 
 		return "lead Deleted";
@@ -91,6 +109,14 @@ public class Leadcontroler {
 	@PutMapping("/updatelead/{id}")
 	@PreAuthorize("hasRole('ADMIN')")
 	public String updateLead(@PathVariable Long id, @RequestBody Lead lead) {
+
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
+		Lead leadid = leadrepo.getById(id);
+
+		if (!leadid.getCompany().getId().equals(admin.getCompany().getId())) {
+			throw new RuntimeException("You cannot update another company's lead");
+		}
 
 		lead.setId(id);
 		leadrepo.save(lead);
@@ -105,17 +131,25 @@ public class Leadcontroler {
 		Lead lead = leadrepo.getById(leadId);
 
 		Employee emp = emprepo.getById(employeeId);
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
+
+		if (!lead.getCompany().getId().equals(admin.getCompany().getId())) {
+			throw new RuntimeException("Access Denied");
+		}
+
+		if (!emp.getCompany().getId().equals(admin.getCompany().getId())) {
+			throw new RuntimeException("Access Denied");
+		}
 
 		lead.setAssignedTo(emp.getUser());
 		leadrepo.save(lead);
-		
+
 		Notifications notify = new Notifications();
 		notify.setTitle("new Lead assigned");
 		notify.setMessage("a new lead assigend to u");
 		notify.setUser(emp.getUser());
 		notifyrepo.save(notify);
-		
-		
 
 		return lead.getName() + " assigned to " + emp.getUser().getUsername();
 
@@ -124,8 +158,10 @@ public class Leadcontroler {
 	@GetMapping("/findbyleadname")
 	@PreAuthorize("hasRole('ADMIN')")
 	public Object findbyleadname(@RequestParam String name) {
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
 
-		List<Lead> list = leadrepo.findByNameContainingIgnoreCase(name);
+		List<Lead> list = leadrepo.findByCompanyAndNameContainingIgnoreCase(admin.getCompany(), name);
 		if (list.isEmpty()) {
 
 			return "no Records Found ";
@@ -136,21 +172,42 @@ public class Leadcontroler {
 
 	}
 
+
+	
 	@GetMapping("/leadcount")
 	@PreAuthorize("hasRole('ADMIN')")
 	public Map<String, Long> getcount() {
-		Map<String, Long> counts = new HashMap<>();
 
-		counts.put("totalLeads", leadrepo.count());
-		counts.put("newleads", leadrepo.countByLeadstatus(LeadStatus.NEW));
-		counts.put("hotLeads", leadrepo.countByLeadtype(Leadtype.HOT));
-		counts.put("warmLeads", leadrepo.countByLeadtype(Leadtype.WARM));
-		counts.put("coldLeads", leadrepo.countByLeadtype(Leadtype.COLD));
-		counts.put("wonLeads", leadrepo.countByLeadstatus(LeadStatus.WON));
-		counts.put("lostLeads", leadrepo.countByLeadstatus(LeadStatus.LOST));
+	    String email = SecurityContextHolder.getContext()
+	            .getAuthentication()
+	            .getName();
 
-		return counts;
+	    USER admin = userrepo.findByEmail(email)
+	            .orElseThrow(() -> new RuntimeException("Admin not found"));
 
+	    Map<String, Long> counts = new HashMap<>();
+
+	    counts.put("totalLeads",
+	            leadrepo.countByCompany(admin.getCompany()));
+
+	    counts.put("newLeads",
+	            leadrepo.countByCompanyAndLeadstatus(admin.getCompany(), LeadStatus.NEW));
+
+	    counts.put("hotLeads",
+	            leadrepo.countByCompanyAndLeadtype(admin.getCompany(), Leadtype.HOT));
+
+	    counts.put("warmLeads",
+	            leadrepo.countByCompanyAndLeadtype(admin.getCompany(), Leadtype.WARM));
+
+	    counts.put("coldLeads",
+	            leadrepo.countByCompanyAndLeadtype(admin.getCompany(), Leadtype.COLD));
+
+	    counts.put("wonLeads",
+	            leadrepo.countByCompanyAndLeadstatus(admin.getCompany(), LeadStatus.WON));
+
+	    counts.put("lostLeads",
+	            leadrepo.countByCompanyAndLeadstatus(admin.getCompany(), LeadStatus.LOST));
+
+	    return counts;
 	}
-
 }

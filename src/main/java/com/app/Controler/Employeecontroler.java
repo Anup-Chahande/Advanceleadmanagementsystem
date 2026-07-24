@@ -93,18 +93,23 @@ public class Employeecontroler {
 
 		leads.setLeadstatus(lead.getLeadstatus());
 
-		leadrepo.save(leads);
-		
 		String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
 		USER user = userrepo.findByEmail(email)
 		        .orElseThrow(() -> new RuntimeException("User not found"));
 
+		
+	
+		if (!leads.getCompany().getId().equals(user.getCompany().getId())) {
+		    throw new RuntimeException("Access Denied");
+		}
+		leadrepo.save(leads);
+		
+		
 		Employee employee = emprepo.findByUser(user);
 		
 		if(leads.getLeadstatus()==LeadStatus.WON) {
-			 if (!custrepo.existsByEmail(leads.getEmail())) {
-
+			if (!custrepo.existsByEmailAndCompany(leads.getEmail(), user.getCompany())) {
 		            Customer customer = new Customer();
 		            customer.setName(leads.getName());
 		            customer.setPhone(leads.getPhone());
@@ -112,6 +117,7 @@ public class Employeecontroler {
 		            customer.setCity(leads.getCity());
 		            customer.setEmail(leads.getEmail());
 		            customer.setDob(leads.getDob());
+		            customer.setCompany(user.getCompany());
 
 		            custrepo.save(customer);
 		            
@@ -137,7 +143,14 @@ public class Employeecontroler {
 	public String changestatus(@PathVariable Long id, @RequestBody Lead lead) {
 
 		Lead leads = leadrepo.getById(id);
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
+		USER user = userrepo.findByEmail(email)
+		        .orElseThrow(() -> new RuntimeException("User not found"));
+
+		if (!leads.getCompany().getId().equals(user.getCompany().getId())) {
+		    throw new RuntimeException("Access Denied");
+		}
 		leads.setStaus(lead.getStaus());
 
 		leadrepo.save(leads);

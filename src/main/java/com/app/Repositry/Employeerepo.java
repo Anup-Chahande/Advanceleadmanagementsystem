@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import com.app.Entity.Company;
 import com.app.Entity.Employee;
 import com.app.Entity.Manager;
 import com.app.Entity.USER;
@@ -16,5 +17,9 @@ public interface Employeerepo extends JpaRepository<Employee, Long>{
   public  Employee findByUser(USER user);
 
   public List<Employee> findByManager(Manager manager);
+
+  public List<Employee> findByCompany(Company company);
+
+  public List<Employee> findByCompanyAndNameContainingIgnoreCase(Company company, String name);
 	
 }

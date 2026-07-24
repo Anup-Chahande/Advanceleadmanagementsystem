@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -59,13 +60,12 @@ public class AdminControler {
 
 	@Autowired
 	Employeeservice empservice;
-	
+
 	@Autowired
 	Notifcationsrepo notirepo;
-	
+
 	@Autowired
 	private ExcelService excelService;
-
 
 	@PostMapping("/addemployee")
 	@PreAuthorize("hasRole('ADMIN')")
@@ -107,23 +107,27 @@ public class AdminControler {
 	@PreAuthorize("hasRole('ADMIN')")
 	public Object serarchemployeebyname(@RequestParam String name) {
 
-		List<Employee> list = emprepo.findByNameContainingIgnoreCase(name);
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
+
+		List<Employee> list = emprepo.findByCompanyAndNameContainingIgnoreCase(admin.getCompany(), name);
+
 		if (list.isEmpty()) {
-
-			return "No Records Found ";
-
+			return "No Records Found";
 		}
 
 		return list;
-
 	}
 
 	@GetMapping("/getallmanager")
 	@PreAuthorize("hasRole('ADMIN')")
 	public List<Manager> getallmanager() {
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
 
-		return mangrepo.findAll();
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
 
+		return mangrepo.findByCompany(admin.getCompany());
 	}
 
 	@PostMapping("/addmanager")
@@ -138,6 +142,9 @@ public class AdminControler {
 
 			return "email is already exist";
 		}
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
 
 		Role managerrole = roleRepository.findByName("MANAGER").orElse(null);
 
@@ -152,6 +159,7 @@ public class AdminControler {
 		user.setUsername(managerdto.getUsername());
 		user.setPassword(encoder.encode(managerdto.getPassword()));
 		user.setEmail(managerdto.getEmail());
+		user.setCompany(admin.getCompany());
 		user.setRole(managerrole);
 
 		user = userrepo.save(user);
@@ -161,6 +169,7 @@ public class AdminControler {
 		manager.setName(managerdto.getUsername());
 		manager.setEmail(managerdto.getEmail());
 		manager.setPhone(managerdto.getPhone());
+		manager.setCompany(admin.getCompany());
 		manager.setUser(user);
 		mangrepo.save(manager);
 
@@ -175,8 +184,14 @@ public class AdminControler {
 		if (result.hasErrors()) {
 			return result.getFieldError().getDefaultMessage();
 		}
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
 
 		Manager manager = mangrepo.findById(id).orElseThrow(() -> new RuntimeException("Manager not found"));
+		if (!manager.getCompany().getId().equals(admin.getCompany().getId())) {
+			throw new RuntimeException("Access Denied");
+		}
 		manager.setName(managerdto.getUsername());
 		manager.setEmail(managerdto.getEmail());
 		manager.setPhone(managerdto.getPhone());
@@ -195,7 +210,15 @@ public class AdminControler {
 	@PreAuthorize("hasRole('ADMIN')")
 	public String deletemanager(@PathVariable Long id) {
 
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
+
 		Manager manager = mangrepo.getById(id);
+
+		if (!manager.getCompany().getId().equals(admin.getCompany().getId())) {
+			throw new RuntimeException("Access Denied");
+		}
 		USER user = manager.getUser();
 		List<Employee> employees = emprepo.findByManager(manager);
 
@@ -215,36 +238,42 @@ public class AdminControler {
 	@PreAuthorize("hasRole('ADMIN')")
 	public String assignemployee(@PathVariable Long eid, @PathVariable Long mid) {
 
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+
+		USER admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
+
 		Manager manager = mangrepo.getById(mid);
 
 		Employee employee = emprepo.getById(eid);
+		
+		if (!manager.getCompany().getId().equals(admin.getCompany().getId())) {
+			throw new RuntimeException("Access Denied");
+		}
+
+		if (!employee.getCompany().getId().equals(admin.getCompany().getId())) {
+			throw new RuntimeException("Access Denied");
+		}
+		
 		employee.setManager(manager);
 
 		emprepo.save(employee);
-		
+
 		Notifications notification = new Notifications();
 		notification.setTitle("New Employee Assigned");
 		notification.setMessage(employee.getName() + " has joined your team.");
 		notification.setUser(manager.getUser());
 		notirepo.save(notification);
-          
+
 		return employee.getName() + "assigned to" + manager.getName();
 
 	}
-	
-	
-	
+
 	@PostMapping("/upload")
+	@PreAuthorize("hasRole('ADMIN')")
 	public String uploadExcel(@RequestParam("file") MultipartFile file) {
 
-	    return excelService.uploadLeads(file);
+		return excelService.uploadLeads(file);
 
 	}
-	
-	
-	
-	
-	
-	
 
 }

@@ -71,8 +71,11 @@ public class Managercontroler {
 		
 		for (Employee employe : employee) {
 			
-			List<Lead> leads=	leadrepo.findByAssignedTo(employe.getUser());
-			myleads.addAll(leads);
+			List<Lead> leads =
+				    leadrepo.findByAssignedToAndCompany(
+				        employe.getUser(),
+				        user.getCompany()
+				    );			myleads.addAll(leads);
 			
 		}
 		
@@ -95,8 +98,11 @@ public class Managercontroler {
 
 	    for (Employee emp : employees) {
 
-	        List<Lead> leads = leadrepo.findByAssignedTo(emp.getUser());
-
+	    	List<Lead> leads =
+	    		    leadrepo.findByAssignedToAndCompany(
+	    		        emp.getUser(),
+	    		        user.getCompany()
+	    		    );
 	        dto.setTotalLeads(dto.getTotalLeads() + leads.size());
 
 	        for (Lead lead : leads) {

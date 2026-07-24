@@ -1,5 +1,6 @@
 package com.app.Repositry;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,6 +18,7 @@ public interface Userreop extends JpaRepository<USER, Integer>{
 	    
 	   boolean existsByRole(Role adminrole);
 	   boolean existsByEmail(String email);
+	   List<USER> findByCompanyIdAndRole_Name(Long id, String string);
 
 
 }

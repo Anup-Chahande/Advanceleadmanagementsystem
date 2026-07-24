@@ -12,7 +12,7 @@ import com.app.Repositry.Rolerepositry;
 import com.app.Repositry.Userreop;
 
 @Component
-public class Registeradmin implements CommandLineRunner{
+public class RegisterSuperadmin implements CommandLineRunner{
 	
 	@Autowired
 	Userreop userepo;
@@ -27,26 +27,27 @@ public class Registeradmin implements CommandLineRunner{
 	@Override
 	public void run(String... args) throws Exception {
 		
-		Role adminrole = rolerepo.findByName("ADMIN").orElse(null);
+		Role superAdminRole  = rolerepo.findByName("SUPER_ADMIN").orElse(null);
 
-		if (adminrole == null) {
+		if (superAdminRole  == null) {
 
-		    adminrole = new Role();
-		    adminrole.setName("ADMIN");
+			superAdminRole  = new Role();
+			superAdminRole .setName("SUPER_ADMIN");
 
-		    adminrole = rolerepo.save(adminrole);
+			superAdminRole  = rolerepo.save(superAdminRole );
 		}
 		    
-		  if(!userepo.existsByRole(adminrole)) {
-		 USER admin= new USER();
+		  if(!userepo.existsByRole(superAdminRole )) {
+		 USER superAdmin = new USER();
 		    
 		 
 		
-		  admin.setUsername("admin1");
-		  admin.setEmail("anupchahande2814@gmail.com");
-		  admin.setRole(adminrole);
-		  admin.setPassword(encoder.encode("admin123"));
-		  userepo.save(admin);
+		 superAdmin .setUsername("SUPER_ADMIN");
+		 superAdmin .setEmail("anupchahande2814@gmail.com");
+		 superAdmin .setRole(superAdminRole );
+		 superAdmin .setPassword(encoder.encode("admin123"));
+		 superAdmin .setCompany(null);
+		  userepo.save(superAdmin );
 		  
 		  }
 		

@@ -3,6 +3,7 @@ package com.app.Service;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.BindingResult;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import com.app.Dto.Employeedto;
+import com.app.Entity.Company;
 import com.app.Entity.Employee;
 import com.app.Entity.Lead;
 import com.app.Entity.Role;
@@ -45,6 +47,10 @@ public class Employeeservice {
 			return result.getFieldError().getDefaultMessage();
 		}
 
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+		USER Admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
+		Company company = Admin.getCompany();
+
 		if (userrepo.existsByEmail(empd.getEmail())) {
 
 			return "email is already exist";
@@ -66,6 +72,7 @@ public class Employeeservice {
 		user.setPassword(encoder.encode(empd.getPassword()));
 		user.setEmail(empd.getEmail());
 		user.setRole(employeeRole);
+		user.setCompany(company);
 		USER userobj = userrepo.save(user);
 
 		Employee emp = new Employee();
@@ -73,6 +80,7 @@ public class Employeeservice {
 		emp.setCity(empd.getCity());
 		emp.setDob(empd.getDob());
 		emp.setEmail(empd.getEmail());
+		emp.setCompany(company);
 		emp.setNumber(empd.getNumber());
 		emp.setDesignation(empd.getDesignation());
 		emp.setJoiningDate(empd.getJoiningDate());
@@ -87,7 +95,14 @@ public class Employeeservice {
 
 	public List<Employee> getallemployee() {
 
-		List<Employee> list = emprepo.findAll();
+		String email = SecurityContextHolder.getContext()
+		        .getAuthentication()
+		        .getName();
+
+		USER admin = userrepo.findByEmail(email)
+		        .orElseThrow(() -> new RuntimeException("Admin not found"));
+
+		List<Employee> list = emprepo.findByCompany(admin.getCompany());
 		for (Employee employee : list) {
 
 			if (employee.getUser() != null) {
@@ -101,7 +116,16 @@ public class Employeeservice {
 
 	public String deleteemployee(@PathVariable Long id) {
 
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+		USER Admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
+		
+		
 		Employee emp = emprepo.getById(id);
+		  if (!emp.getCompany().getId().equals(Admin.getCompany().getId())) {
+		        throw new RuntimeException("You cannot delete another company's employee");
+		    }
+		
+
 		USER user = emp.getUser();
 
 		List<Lead> leads = leadrepo.findByAssignedTo(user);
@@ -119,14 +143,30 @@ public class Employeeservice {
 	}
 
 	public Employee getemployeebyid(@PathVariable Long id) {
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+		USER Admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
+		
+		
+		
+		Employee emp = emprepo.getById(id);
+		
+		if (!emp.getCompany().getId().equals(Admin.getCompany().getId())) {
+		    throw new RuntimeException("Access Denied");
+		}
 
-		return emprepo.getById(id);
+		return emp;
 	}
 
 	public String updateemployee(@PathVariable Long id, @RequestBody Employee emp) {
-
+		String email = SecurityContextHolder.getContext().getAuthentication().getName();
+		USER Admin = userrepo.findByEmail(email).orElseThrow(() -> new RuntimeException("Admin not found"));
+		
 		Employee existing = emprepo.findById(id).orElseThrow(() -> new RuntimeException("Employee not found"));
 
+		if (!existing.getCompany().getId().equals(Admin.getCompany().getId())) {
+		    throw new RuntimeException("Access Denied");
+		}
+		
 		existing.setName(emp.getName());
 		existing.setEmail(emp.getEmail());
 		existing.setCity(emp.getCity());
@@ -135,8 +175,7 @@ public class Employeeservice {
 		existing.setDepartment(emp.getDepartment());
 		existing.setDesignation(emp.getDesignation());
 		existing.setJoiningDate(emp.getJoiningDate());
-		
-		
+
 		USER user = existing.getUser();
 		user.setUsername(emp.getName());
 		user.setEmail(emp.getEmail());
